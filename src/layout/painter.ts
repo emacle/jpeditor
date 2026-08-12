@@ -158,6 +158,111 @@ export class JinpuPainter {
     return svg;
   }
 
+  /**
+   * "整页 A4"渲染：把整首简谱排进 A4（默认 595×842，与选项面板 A4 一致）。
+   * 短谱→单张 A4，标题+词曲作者叠加在**同一页顶部**、简谱紧随其下（不分页）；
+   * 超长谱→自动分页，首页顶部同样叠主标题。用**独立临时 Layout** 排版，
+   * 不触碰 this.layout / this.layout.pages，故不影响多页预览、点选、播放高亮。
+   */
+  renderA4Svgs(width = 595, height = 842): SVGSVGElement[] {
+    const o = this.layout.options;
+    const tmp = new Layout(this.layout.fontSize);
+    const to = tmp.options;
+    to.color = o.color;
+    to.smuflMeta = o.smuflMeta;
+    to.titleSize = o.titleSize;
+    to.creditSize = o.creditSize;
+    to.smuflAsPath = o.smuflAsPath;
+    to.halfWidthPunct = o.halfWidthPunct;
+    to.ignoreVerseNumber = o.ignoreVerseNumber;
+    to.slurTieThickness = o.slurTieThickness;
+    to.staffDist = o.staffDist;
+    to.marginTop = o.marginTop;
+    to.marginBottom = o.marginBottom;
+    to.marginLeft = o.marginLeft;
+    to.maxLineDist = o.maxLineDist;
+    to.maxHorizontalScale = o.maxHorizontalScale;
+    to.jpBeamDist = o.jpBeamDist;
+    to.lrcFont = o.lrcFont;
+    to.numberFont = o.numberFont;
+    to.smuflFont = o.smuflFont;
+
+    tmp.fromScore(this.score, null, width, height);
+
+    const titleLines = this.a4TitleLines();
+    const titleH = this.a4TitleHeight(titleLines);
+    const svgs: SVGSVGElement[] = [];
+    tmp.pages.forEach((pg, idx) => {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      svg.setAttribute("class", "score-page a4-page");
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.setAttribute("width", String(width));
+      svg.setAttribute("height", String(height));
+      const g = renderPageItem(pg, undefined);
+      if (idx === 0) g.setAttribute("transform", `translate(0 ${titleH})`);
+      svg.appendChild(g);
+      if (idx === 0) this.appendTitleBlock(svg, titleLines, width);
+      svgs.push(svg);
+    });
+    return svgs;
+  }
+
+  /** A4 顶部标题块：标题（titleSize）+ 词曲作者（creditSize），居中，支持多行。 */
+  private a4TitleLines(): { text: string; size: number }[] {
+    const o = this.layout.options;
+    const texts: { text: string; size: number }[] = [];
+    let titleCount = 0;
+    for (const it of this.score.credit) {
+      const isTitle = it.type === "title";
+      const size = isTitle ? o.titleSize : o.creditSize;
+      const item = { text: it.text, size };
+      if (isTitle) { titleCount++; texts.unshift(item); }
+      else texts.push(item);
+    }
+    if (titleCount === 0 && this.score.title.trim().length > 0) {
+      texts.unshift({ text: this.score.title, size: o.titleSize });
+    }
+    return texts;
+  }
+
+  private a4TitleHeight(lines: { text: string; size: number }[]): number {
+    let y = 24;
+    for (const ln of lines) {
+      for (const seg of ln.text.split("\n")) {
+        if (seg.trim() === "") continue;
+        y += ln.size * 1.3;
+      }
+      y += ln.size * 0.4;
+    }
+    return Math.max(y, 40);
+  }
+
+  private appendTitleBlock(
+    svg: SVGSVGElement,
+    lines: { text: string; size: number }[],
+    width: number,
+  ): void {
+    const o = this.layout.options;
+    let y = 24;
+    for (const ln of lines) {
+      for (const seg of ln.text.split("\n")) {
+        if (seg.trim() === "") continue;
+        const t = document.createElementNS(SVG_NS, "text");
+        t.setAttribute("x", String(width / 2));
+        t.setAttribute("y", String(y + ln.size * 0.8));
+        t.setAttribute("text-anchor", "middle");
+        t.setAttribute("font-family", o.lrcFont.family);
+        t.setAttribute("font-size", String(ln.size));
+        t.setAttribute("fill", colorToCss(o.color));
+        t.textContent = seg;
+        svg.appendChild(t);
+        y += ln.size * 1.3;
+      }
+      y += ln.size * 0.4;
+    }
+  }
+
+
   /** Walk up from a picked item to its enclosing "entry" group (else the item). */
   entryGroupOf(item: PageItem): PageItem {
     let cur: PageItem | null = item;

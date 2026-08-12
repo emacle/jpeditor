@@ -15,6 +15,10 @@ dist-ssr
 # OMR 批量测试输出
 measure-all.csv
 
+# Python 残留缓存（转调工具由 app.py 移植而来）
+__pycache__/
+
+
 # OMR 测试数据（本地保留，不入库）
 testdata
 

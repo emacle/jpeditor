@@ -213,6 +213,32 @@
         </div>
         <span class="sep" aria-hidden="true"></span>
         <div class="tool-group">
+          <button id="btn-a4-toggle" title="整首简谱排进 A4 整页预览（标题+内容同页，超长自动分页）">整页A4</button>
+        </div>
+        <span class="sep" aria-hidden="true"></span>
+        <div class="tool-group" id="transpose-tools">
+          <span class="tool-label">转调</span>
+          <button id="btn-transpose-c" title="一键转 C 调（保持绝对音高，自动校正八度）">一键转C</button>
+          <label class="select-wrap">
+            <select id="sel-transpose" aria-label="转调到目标调" title="把整首简谱转调到所选调（保持绝对音高，自动校正八度）">
+              <option value="">选调转调…</option>
+              <option value="#C">#C / bD</option>
+              <option value="D">D</option>
+              <option value="bE">bE / #D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="#F">#F / bG</option>
+              <option value="G">G</option>
+              <option value="bA">bA / #G</option>
+              <option value="A">A</option>
+              <option value="bB">bB / #A</option>
+              <option value="B">B</option>
+            </select>
+            <span class="select-chevron" aria-hidden="true">⌄</span>
+          </label>
+          <button id="btn-transpose-map" title="在源码上方展开/收起 原调→新调 12 音映射条" hidden>映射</button>
+        </div>
+        <div class="tool-group">
           <button id="btn-options">设置</button>
           <button id="btn-help" title="功能帮助与记谱法说明">帮助</button>
         </div>
@@ -223,6 +249,11 @@
           <div class="pane-heading">
             <span>乐谱源码</span>
             <span id="code-pane-meta" class="pane-meta">JPWABC</span>
+          </div>
+          <div id="transpose-map-bar" class="transpose-map-bar" hidden>
+            <span id="transpose-map-title" class="transpose-map-title"></span>
+            <div id="transpose-map-cells" class="transpose-map-cells"></div>
+            <button id="btn-transpose-map-close" class="transpose-map-close" title="收起映射条">×</button>
           </div>
           <div id="code-pane"></div>
         </section>

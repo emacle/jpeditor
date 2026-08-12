@@ -117,6 +117,82 @@ async function boot() {
   on("btn-options", () => showOptionsDialog(app));
   on("btn-export", () => showExportDialog(app));
   on("btn-help", () => showHelpDialog(app));
+
+  // —— 一键转调（并入自 app.py 的 .jpwabc 转调工具）+ 整页 A4 预览 ——
+  const transposeSel = document.getElementById("sel-transpose") as HTMLSelectElement | null;
+  const transposeBtnC = document.getElementById("btn-transpose-c") as HTMLButtonElement | null;
+  const transposeMapBtn = document.getElementById("btn-transpose-map") as HTMLButtonElement | null;
+  const mapBar = document.getElementById("transpose-map-bar");
+  const mapTitle = document.getElementById("transpose-map-title");
+  const mapCells = document.getElementById("transpose-map-cells");
+  const mapClose = document.getElementById("btn-transpose-map-close");
+  // 记录最近一次转调的映射信息，供「映射」按钮在源码上方展开映射条。
+  let lastTranspose: { sourceKey?: string; targetKey?: string; keys?: string[]; vals?: string[] } | null = null
+
+  // 把 12 音映射填进源码上方的横向映射条（每格「原调 → 新调」）
+  const renderMapBar = () => {
+    if (!mapCells || !mapTitle) return;
+    if (!lastTranspose || !lastTranspose.keys || !lastTranspose.vals) {
+      if (mapBar) mapBar.hidden = true;
+      return;
+    }
+    mapTitle.textContent = `转调映射 · ${lastTranspose.sourceKey} → ${lastTranspose.targetKey}`;
+    mapCells.replaceChildren();
+    const N = Math.min(lastTranspose.keys.length, lastTranspose.vals.length);
+    for (let i = 0; i < N; i++) {
+      const cell = document.createElement("span");
+      cell.className = "transpose-map-cell";
+      const src = document.createElement("span");
+      src.className = "src";
+      src.textContent = lastTranspose.keys[i];
+      const arrow = document.createElement("span");
+      arrow.className = "arrow";
+      arrow.textContent = "→";
+      const dst = document.createElement("span");
+      dst.className = "dst";
+      dst.textContent = lastTranspose.vals[i];
+      cell.append(src, arrow, dst);
+      mapCells.append(cell);
+    }
+    if (mapBar) mapBar.hidden = false;
+  };
+  // 执行转调并记录映射（成功即 setText 触发重排；不弹窗，改由映射条展示）
+  const doTranspose = (targetKey: string) => {
+    const info = app.transposeTo(targetKey);
+    if (!info.ok) {
+      alert("转调失败：" + (info.error ?? "未知错误"));
+      return;
+    }
+    lastTranspose = {
+      sourceKey: info.sourceKey,
+      targetKey: info.targetKey,
+      keys: info.mappingKeys,
+      vals: info.mappingVals,
+    };
+    if (transposeMapBtn) transposeMapBtn.hidden = false;
+    renderMapBar();
+  };
+  if (transposeSel) {
+    transposeSel.addEventListener("change", () => {
+      const key = transposeSel.value;
+      transposeSel.value = ""; // 还原为占位项，避免重复触发
+      if (!key) return;
+      doTranspose(key);
+    });
+  }
+  if (transposeBtnC) transposeBtnC.addEventListener("click", () => doTranspose("C"));
+  if (transposeMapBtn) {
+    transposeMapBtn.addEventListener("click", () => {
+      if (mapBar && !mapBar.hidden && lastTranspose) { mapBar.hidden = true; return; }
+      renderMapBar();
+    });
+  }
+  if (mapClose) mapClose.addEventListener("click", () => { if (mapBar) mapBar.hidden = true; });
+
+  // —— 整页 A4 切换 ——
+  const a4ToggleBtn = document.getElementById("btn-a4-toggle") as HTMLButtonElement | null;
+  app.setA4Toggle(a4ToggleBtn);
+
   const jpPreviewBtn = document.getElementById("btn-preview-jp") as HTMLButtonElement | null;
   const staffPreviewBtn = document.getElementById("btn-preview-staff") as HTMLButtonElement | null;
   if (jpPreviewBtn && staffPreviewBtn) {
