@@ -8,6 +8,7 @@ import {
   GraphicPath,
   Group,
   Layout,
+  LayoutOptions,
   NoteEntry,
   PageItem,
   TextFrame,
@@ -159,12 +160,13 @@ export class JinpuPainter {
   }
 
   /**
-   * "整页 A4"渲染：把整首简谱排进 A4（默认 595×842，与选项面板 A4 一致）。
-   * 短谱→单张 A4，标题+词曲作者叠加在**同一页顶部**、简谱紧随其下（不分页）；
-   * 超长谱→自动分页，首页顶部同样叠主标题。用**独立临时 Layout** 排版，
-   * 不触碰 this.layout / this.layout.pages，故不影响多页预览、点选、播放高亮。
+   * "整页"渲染：把整首简谱排进**一整页**（标题+内容同页），高度随内容自适应，
+   * 不再固定 A4 纸张——用简谱当前字号，整首一页放完（超长才自动分页）。
+   * 标题居中，作词/作曲/原唱等靠右对齐，标题与简谱间距紧凑。
+   * 用**独立临时 Layout** 排版，不触碰 this.layout / this.layout.pages，
+   * 故不影响多页预览、点选、播放高亮。
    */
-  renderA4Svgs(width = 595, height = 842): SVGSVGElement[] {
+  renderA4Svgs(width = 595): SVGSVGElement[] {
     const o = this.layout.options;
     const tmp = new Layout(this.layout.fontSize);
     const to = tmp.options;
@@ -187,78 +189,110 @@ export class JinpuPainter {
     to.numberFont = o.numberFont;
     to.smuflFont = o.smuflFont;
 
-    tmp.fromScore(this.score, null, width, height);
+    // 整页排版：wholePage 让行从 marginTop 起以 maxLineDist 固定行距紧排，
+    // 用大高度探针保证所有行进单页（withFooter=false，不带底部标题/页码）。
+    // 高度按内容底自适应，标题区叠顶部。
+    to.wholePage = true;
+    tmp.fromScore(this.score, null, width, 200000, false);
+    tmp.pages.forEach((p) => p.update());
+    const contentBottom = tmp.pages[0]?.childrenBound.bottom ?? 0;
+    const pageH = Math.max(Math.ceil(contentBottom + o.marginBottom), 0);
 
     const titleLines = this.a4TitleLines();
     const titleH = this.a4TitleHeight(titleLines);
     const svgs: SVGSVGElement[] = [];
     tmp.pages.forEach((pg, idx) => {
+      const height = Math.ceil(titleH + pageH);
       const svg = document.createElementNS(SVG_NS, "svg");
       svg.setAttribute("class", "score-page a4-page");
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svg.setAttribute("width", String(width));
       svg.setAttribute("height", String(height));
       const g = renderPageItem(pg, undefined);
-      if (idx === 0) g.setAttribute("transform", `translate(0 ${titleH})`);
-      svg.appendChild(g);
-      if (idx === 0) this.appendTitleBlock(svg, titleLines, width);
+      if (idx === 0) {
+        // 标题区在谱面之上：用外层 group 平移，避免覆盖 renderPageItem 已编码的
+        // 页面矩阵（含 marginLeft 左内边距与纵向排版偏移），保证左右边距对称。
+        const outer = document.createElementNS(SVG_NS, "g");
+        outer.setAttribute("transform", `translate(0 ${titleH})`);
+        outer.appendChild(g);
+        svg.appendChild(outer);
+      } else {
+        svg.appendChild(g);
+      }
+      if (idx === 0) this.appendTitleBlock(svg, titleLines, width, o);
       svgs.push(svg);
     });
     return svgs;
   }
 
-  /** A4 顶部标题块：标题（titleSize）+ 词曲作者（creditSize），居中，支持多行。 */
-  private a4TitleLines(): { text: string; size: number }[] {
+  /** 整页顶部标题区行：标题（titleSize，居中）+ 作词/作曲/原唱等 credit（creditSize，靠右）。 */
+  private a4TitleLines(): { text: string; size: number; kind: "title" | "credit" }[] {
     const o = this.layout.options;
-    const texts: { text: string; size: number }[] = [];
+    const texts: { text: string; size: number; kind: "title" | "credit" }[] = [];
     let titleCount = 0;
     for (const it of this.score.credit) {
       const isTitle = it.type === "title";
       const size = isTitle ? o.titleSize : o.creditSize;
-      const item = { text: it.text, size };
+      const item = { text: it.text, size, kind: (isTitle ? "title" : "credit") as "title" | "credit" };
       if (isTitle) { titleCount++; texts.unshift(item); }
       else texts.push(item);
     }
     if (titleCount === 0 && this.score.title.trim().length > 0) {
-      texts.unshift({ text: this.score.title, size: o.titleSize });
+      texts.unshift({ text: this.score.title, size: o.titleSize, kind: "title" });
     }
-    return texts;
+    // 标题之后才允许有 credit（title 只出现在最前，多个标题互相堆叠，其后接 credit）
+    const out: typeof texts = [];
+    let seenTitle = false;
+    for (const it of texts) {
+      if (it.kind === "title") { seenTitle = true; out.push(it); }
+      else if (seenTitle) out.push(it);
+    }
+    return out.length ? out : texts;
   }
 
-  private a4TitleHeight(lines: { text: string; size: number }[]): number {
-    let y = 24;
+  /** 标题区总高（与 appendTitleBlock 共用同一 y 推进公式，保证下移量一致）。 */
+  private a4TitleHeight(lines: { text: string; size: number; kind: "title" | "credit" }[]): number {
+    return this.measureTitleBlock(lines).height;
+  }
+
+  /** 计算标题区各文本行（seg / y / anchor / size）并给出总高，供渲染与高度测量共用。
+   *  x 由 appendTitleBlock 按锚点定位（居中=折宽/2，靠右=宽-左边距），这里不关心。 */
+  private measureTitleBlock(lines: { text: string; size: number; kind: "title" | "credit" }[]) {
+    let y = 14;
+    const rows: { seg: string; y: number; anchor: string; size: number }[] = [];
+    let lastBottom = y;
     for (const ln of lines) {
       for (const seg of ln.text.split("\n")) {
         if (seg.trim() === "") continue;
-        y += ln.size * 1.3;
+        const anchor = ln.kind === "title" ? "middle" : "end";
+        rows.push({ seg, y: y + ln.size * 0.8, anchor, size: ln.size });
+        y += ln.size * (ln.kind === "title" ? 1.2 : 1.15);
+        lastBottom = y;
       }
-      y += ln.size * 0.4;
+      y += ln.size * 0.2;
+      lastBottom = y;
     }
-    return Math.max(y, 40);
+    return { height: Math.max(lastBottom, 30), rows };
   }
 
   private appendTitleBlock(
     svg: SVGSVGElement,
-    lines: { text: string; size: number }[],
+    lines: { text: string; size: number; kind: "title" | "credit" }[],
     width: number,
+    o: LayoutOptions,
   ): void {
-    const o = this.layout.options;
-    let y = 24;
-    for (const ln of lines) {
-      for (const seg of ln.text.split("\n")) {
-        if (seg.trim() === "") continue;
-        const t = document.createElementNS(SVG_NS, "text");
-        t.setAttribute("x", String(width / 2));
-        t.setAttribute("y", String(y + ln.size * 0.8));
-        t.setAttribute("text-anchor", "middle");
-        t.setAttribute("font-family", o.lrcFont.family);
-        t.setAttribute("font-size", String(ln.size));
-        t.setAttribute("fill", colorToCss(o.color));
-        t.textContent = seg;
-        svg.appendChild(t);
-        y += ln.size * 1.3;
-      }
-      y += ln.size * 0.4;
+    const { rows } = this.measureTitleBlock(lines);
+    for (const r of rows) {
+      const t = document.createElementNS(SVG_NS, "text");
+      const x = r.anchor === "middle" ? width / 2 : width - o.marginLeft;
+      t.setAttribute("x", String(x));
+      t.setAttribute("y", String(r.y));
+      t.setAttribute("text-anchor", r.anchor);
+      t.setAttribute("font-family", o.lrcFont.family);
+      t.setAttribute("font-size", String(r.size));
+      t.setAttribute("fill", colorToCss(o.color));
+      t.textContent = r.seg;
+      svg.appendChild(t);
     }
   }
 
