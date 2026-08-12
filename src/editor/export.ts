@@ -85,7 +85,7 @@ export async function exportCurrentPagePng(app: App): Promise<void> {
 }
 
 /**
- * 整页 A4 导出：把整首简谱按 A4（标题+内容同页）渲染成 PNG，超长自动分页则逐页导出。
+ * "整页"导出：把整首简谱（标题+内容同页，高度自适应）渲染成 PNG，超长自动分页则逐页导出。
  * 复用 painter.renderA4Svgs()（独立临时 Layout，不影响当前预览/点选/播放）。
  */
 export async function exportA4Png(app: App): Promise<void> {
@@ -93,7 +93,7 @@ export async function exportA4Png(app: App): Promise<void> {
   if (svgs.length === 0) throw new Error("没有可导出的乐谱");
   for (let i = 0; i < svgs.length; i++) {
     const bytes = await svgToBytes(svgs[i], 2);
-    const name = svgs.length > 1 ? `${baseName(app)}-A4-第${i + 1}页.png` : `${baseName(app)}-A4.png`;
+    const name = svgs.length > 1 ? `${baseName(app)}-整页-第${i + 1}页.png` : `${baseName(app)}-整页.png`;
     await saveBytes(bytes, name, "image/png");
   }
 }
@@ -188,7 +188,7 @@ export function showExportDialog(app: App): void {
     item("PDF", () => exportMixedPdf(app));
     item("MIDI", () => exportMidi(app));
   } else {
-    item("图片（A4 整页）", () => exportA4Png(app));
+    item("图片（整页）", () => exportA4Png(app));
     item("PPTX", () => exportPptx(app));
     item("MIDI", () => exportMidi(app));
   }

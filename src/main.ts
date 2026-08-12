@@ -129,7 +129,7 @@ async function boot() {
   // 记录最近一次转调的映射信息，供「映射」按钮在源码上方展开映射条。
   let lastTranspose: { sourceKey?: string; targetKey?: string; keys?: string[]; vals?: string[] } | null = null
 
-  // 把 12 音映射填进源码上方的横向映射条（每格「原调 → 新调」）
+  // 把 12 音映射填进源码上方的横向映射条（两行表格：上一行原调、下一行新调，逐列对应）
   const renderMapBar = () => {
     if (!mapCells || !mapTitle) return;
     if (!lastTranspose || !lastTranspose.keys || !lastTranspose.vals) {
@@ -139,21 +139,17 @@ async function boot() {
     mapTitle.textContent = `转调映射 · ${lastTranspose.sourceKey} → ${lastTranspose.targetKey}`;
     mapCells.replaceChildren();
     const N = Math.min(lastTranspose.keys.length, lastTranspose.vals.length);
-    for (let i = 0; i < N; i++) {
-      const cell = document.createElement("span");
-      cell.className = "transpose-map-cell";
-      const src = document.createElement("span");
-      src.className = "src";
-      src.textContent = lastTranspose.keys[i];
-      const arrow = document.createElement("span");
-      arrow.className = "arrow";
-      arrow.textContent = "→";
-      const dst = document.createElement("span");
-      dst.className = "dst";
-      dst.textContent = lastTranspose.vals[i];
-      cell.append(src, arrow, dst);
-      mapCells.append(cell);
-    }
+    const grid = document.createElement("div");
+    grid.className = "transpose-map-grid";
+    const mkCell = (text: string, kind: "src" | "dst") => {
+      const c = document.createElement("span");
+      c.className = `transpose-map-cell ${kind}`;
+      c.textContent = text;
+      return c;
+    };
+    for (let i = 0; i < N; i++) grid.append(mkCell(lastTranspose.keys[i], "src"));
+    for (let i = 0; i < N; i++) grid.append(mkCell(lastTranspose.vals[i], "dst"));
+    mapCells.append(grid);
     if (mapBar) mapBar.hidden = false;
   };
   // 执行转调并记录映射（成功即 setText 触发重排；不弹窗，改由映射条展示）

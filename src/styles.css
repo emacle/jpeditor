@@ -276,19 +276,20 @@ button:focus-visible, select:focus-visible {
   white-space: nowrap;
 }
 .transpose-map-cells {
-  display: flex;
-  align-items: center;
-  gap: 4px;
   flex: 1 1 auto;
   min-width: 0;
 }
+/* 两行表格：上一行原调、下一行新调，逐列对齐 */
+.transpose-map-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  min-width: 100%;
+}
 .transpose-map-cell {
-  flex: 1 1 auto;
-  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap:  contents;
   padding: 3px 0;
   border-radius: 4px;
   background: #141c16;
@@ -297,9 +298,8 @@ button:focus-visible, select:focus-visible {
   font-size: 11px;
   white-space: nowrap;
 }
-.transpose-map-cell .src { color: var(--text-muted); }
-.transpose-map-cell .arrow { color: #4a6a52; margin: 0 2px; }
-.transpose-map-cell .dst { color: var(--green); font-weight: 700; }
+.transpose-map-cell.src { color: var(--text-muted); }
+.transpose-map-cell.dst { color: var(--green); font-weight: 700; background: #0e1a12; }
 .transpose-map-close {
   flex: 0 0 auto;
   height: 22px;
@@ -498,6 +498,13 @@ button:focus-visible, select:focus-visible {
   width: 100%;
   height: 100%;
 }
+
+/* 整页(原 A4)模式：页面是竖长条、宽高比随内容变化，不能被 .score-page-wrap 的
+   固定 16:9 拉伸变形；aspect-ratio 由 JS 按每页 SVG 实际尺寸内联设置。 */
+.a4-page-wrap {
+  aspect-ratio: auto;
+}
+
 
 #measure-svg {
   position: absolute;

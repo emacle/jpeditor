@@ -29,8 +29,8 @@ export class App {
   scorePane: HTMLElement;
   pageEls: HTMLElement[] = [];
   pageIndex = 0;
-  /** 整页 A4 预览模式：整首简谱排进 A4（标题+内容同页），开关由工具栏切换。 */
-  a4Mode = false;
+  /** 整页预览模式：整首简谱排进一整页（标题+内容同页，高度自适应），开关由工具栏切换。 */
+  a4Mode = true;
   filePath: string | null = null;
   mode: "jp" | "mixed" | "recognize" = "jp";
   mixedXmlText: string | null = null;
@@ -363,6 +363,10 @@ export class App {
     for (const svg of svgs) {
       const wrap = document.createElement("div");
       wrap.className = "score-page-wrap a4-page-wrap";
+      // 整页模式宽高比随内容变化，按 SVG 实际尺寸设置，避免被固定 16:9 拉伸变形。
+      const w = Number(svg.getAttribute("width")) || 1;
+      const h = Number(svg.getAttribute("height")) || 1;
+      wrap.style.aspectRatio = `${w} / ${h}`;
       wrap.appendChild(svg);
       this.scorePane.appendChild(wrap);
       this.pageEls.push(wrap);

@@ -1029,11 +1029,17 @@ export class Line {
         totalHeight += l.group.height;
       }
       if (pg.lines.length > 1) {
-        let dd = (height - totalHeight) / (pg.lines.length - 1);
+        let dd;
         y = top;
-        if (dd > maxDist) {
-          y += ((dd - maxDist) * (pg.lines.length - 1)) / 2;
+        if (opt.wholePage) {
+          // 整页模式：行距固定 maxLineDist，行从 marginTop 起紧排（无居中有偏置）。
           dd = maxDist;
+        } else {
+          dd = (height - totalHeight) / (pg.lines.length - 1);
+          if (dd > maxDist) {
+            y += ((dd - maxDist) * (pg.lines.length - 1)) / 2;
+            dd = maxDist;
+          }
         }
         for (const ll of pg.lines) {
           const l = ll.group;
@@ -1349,6 +1355,10 @@ export class LayoutOptions {
   ignoreVerseNumber = true;
   slurTieThickness = 4;
   staffDist = 0;
+  /** 整页(原 A4)模式：行从 marginTop 起以 maxLineDist 固定行距紧排，不做
+   *  "不满页均匀铺开/居中偏置"（大高度探针下那个偏置会把内容推到页面正中、
+   *   与顶部标题之间留出巨大空白）。默认 false（保留多页预览的原行为）。 */
+  wholePage = false;
   marginTop: number;
   marginBottom: number;
   marginLeft = 50;
@@ -1486,7 +1496,13 @@ export class Layout {
     l.entries = newEnt;
   }
 
-  fromScore(scr: S.Score, dur: string | null, width: number, height: number): void {
+  fromScore(
+    scr: S.Score,
+    dur: string | null,
+    width: number,
+    height: number,
+    withFooter = true,
+  ): void {
     this.pages = [];
     const cw = width - this.options.marginLeft * 2;
     const ch = height - this.options.marginTop - this.options.marginBottom;
@@ -1522,7 +1538,7 @@ export class Layout {
     }
     l.connectTextFrames();
     for (const g of l.layout(cw, ch, this.options)) this.pages.push(g);
-    this.titleAndPageNumber(scr.title, width, height, cw);
+    if (withFooter) this.titleAndPageNumber(scr.title, width, height, cw);
   }
 
   titleAndPageNumber(title: string, width: number, height: number, cw: number): void {
