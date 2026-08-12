@@ -1538,12 +1538,14 @@ export class Layout {
     }
     l.connectTextFrames();
     for (const g of l.layout(cw, ch, this.options)) this.pages.push(g);
+    // 页面内容右移 marginLeft（左内边距）。与是否输出 footer 无关，必须无条件执行，
+    // 否则整页模式（withFooter=false）内容会贴着 x=0、左侧无留白、左右边距不对称。
+    for (const pg of this.pages) pg.x += this.options.marginLeft;
     if (withFooter) this.titleAndPageNumber(scr.title, width, height, cw);
   }
 
   titleAndPageNumber(title: string, width: number, height: number, cw: number): void {
     this.pages.forEach((pg, idx) => {
-      pg.x += this.options.marginLeft;
       const tf = new TextFrame();
       tf.font = this.options.lrcFont.scaled(0.8);
       tf.text = title.split("\n")[0];
