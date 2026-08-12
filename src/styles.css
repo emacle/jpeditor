@@ -242,6 +242,7 @@ button:focus-visible, select:focus-visible {
 .preview-mode-switch button:hover { color: var(--text); }
 .preview-mode-switch button.active { background: var(--panel-hover); color: var(--text); }
 .preview-mode-switch button:disabled { color: #555; cursor: not-allowed; }
+#btn-a4-toggle.active { background: var(--panel-hover); color: var(--text); }
 .staff-layer-toggle {
   display: inline-flex;
   align-items: center;
@@ -254,6 +255,64 @@ button:focus-visible, select:focus-visible {
 }
 .staff-layer-toggle input { width: 13px; height: 13px; margin: 0; accent-color: var(--green); }
 #code-pane { flex: 1 1 auto; min-height: 0; overflow: auto; background: var(--panel); }
+
+/* 转调映射条（源码编辑器上方，横向 12 音 原调→新调） */
+.transpose-map-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: #0e1410;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.transpose-map-title {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.transpose-map-cells {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.transpose-map-cell {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap:  contents;
+  padding: 3px 0;
+  border-radius: 4px;
+  background: #141c16;
+  color: var(--text);
+  font-family: var(--font-mono, Consolas, monospace);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.transpose-map-cell .src { color: var(--text-muted); }
+.transpose-map-cell .arrow { color: #4a6a52; margin: 0 2px; }
+.transpose-map-cell .dst { color: var(--green); font-weight: 700; }
+.transpose-map-close {
+  flex: 0 0 auto;
+  height: 22px;
+  width: 22px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.transpose-map-close:hover { background: var(--panel-hover); color: var(--text); }
 
 /* Five-line staff preview is rendered from MusicXML; keep source visible but read-only. */
 #body.mixed #code-pane-shell { background: #151515; }

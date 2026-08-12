@@ -15,6 +15,7 @@ import { MetaData } from "../smufl/smufl";
 import { loadMusicXml } from "../score/musicxml";
 import { abcToMusicXml } from "../abc/abc2xml";
 import { scoreToJpwabc, scoreToJpwabcWithMeta, type JpwMeta, type JpwRange } from "../score/jpscore";
+import { transposeJpwabc, type TransposeInfo } from "../score/transpose";
 import { decodeJpwabc, encodeJpwabc, isTauriRuntime } from "./fileio";
 import { MixedPainter } from "../mixed/painter";
 import { ScorePlayer, type PlayState } from "./player";
@@ -28,6 +29,8 @@ export class App {
   scorePane: HTMLElement;
   pageEls: HTMLElement[] = [];
   pageIndex = 0;
+  /** 整页 A4 预览模式：整首简谱排进 A4（标题+内容同页），开关由工具栏切换。 */
+  a4Mode = false;
   filePath: string | null = null;
   mode: "jp" | "mixed" | "recognize" = "jp";
   mixedXmlText: string | null = null;
@@ -331,6 +334,10 @@ export class App {
 
   private renderPages(): void {
     this._player?.stop(); // relayout invalidates chord objects / highlight
+    if (this.a4Mode) {
+      this.renderA4Pages();
+      return;
+    }
     this.scorePane.replaceChildren();
     this.pageEls = [];
     this.selectedEl = null;
@@ -345,6 +352,39 @@ export class App {
       this.pageEls.push(wrap);
     }
     this.pageIndex = Math.min(this.pageIndex, Math.max(0, this.pageEls.length - 1));
+  }
+
+  /** 整页 A4 预览：整首简谱一张 A4（标题+内容同页），超长自动分页。 */
+  private renderA4Pages(): void {
+    this.scorePane.replaceChildren();
+    this.pageEls = [];
+    this.selectedEl = null;
+    const svgs = this.painter.renderA4Svgs();
+    for (const svg of svgs) {
+      const wrap = document.createElement("div");
+      wrap.className = "score-page-wrap a4-page-wrap";
+      wrap.appendChild(svg);
+      this.scorePane.appendChild(wrap);
+      this.pageEls.push(wrap);
+    }
+    this.pageIndex = Math.min(this.pageIndex, Math.max(0, this.pageEls.length - 1));
+  }
+
+  /** 切换整页 A4 预览模式（on=true 整页 A4，否则回到多页翻页预览）。 */
+  setA4Mode(on: boolean): void {
+    this.a4Mode = on && this.mode === "jp";
+    this.renderPages();
+  }
+
+  /** 绑定工具栏整页 A4 切换按钮。 */
+  setA4Toggle(el: HTMLButtonElement | null): void {
+    if (!el) return;
+    const sync = () => el.classList.toggle("active", this.a4Mode);
+    sync();
+    el.addEventListener("click", () => {
+      this.setA4Mode(!this.a4Mode);
+      sync();
+    });
   }
 
   // ---------------- picking / selection ----------------
@@ -1173,6 +1213,19 @@ export class App {
   getLinesPerPage(): string {
     const f = JpwFile.fromString(this.getText());
     return f?.getSection(LayoutSection)?.linesPerPage?.trim() ?? "";
+  }
+
+  /**
+   * 一键转调（port of app.py convert_jpwabc）：把当前文档的 .Voice 数字简谱转换到
+   * targetKey，并改写 .Title 的 KeyAndMeters，其余节（.Words/.Repeat/.Layout 等）原样保留。
+   * 成功即 setText 触发实时重排；返回信息供调用方展示映射表或报错。
+   */
+  transposeTo(targetKey: string): TransposeInfo {
+    const { text, info } = transposeJpwabc(this.getText(), targetKey);
+    if (info.ok && text !== this.getText()) {
+      this.setText(text);
+    }
+    return info;
   }
 }
 
