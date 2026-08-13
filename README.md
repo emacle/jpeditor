@@ -8,7 +8,8 @@
 ![Platform](https://img.shields.io/badge/platform-Web%20%7C%20macOS%20%7C%20Windows-555)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**🌐 在线试用 / Live demo：<https://lodebar2026.github.io/jpeditor/>**
+**🌐 一键转C调（适合半音阶口琴）
+![一键转C调](docs/toC.jpg)
 
 简谱（JP-Word / `.jpwabc`）排版与编辑器。
 
