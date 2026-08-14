@@ -21,6 +21,9 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 export class JinpuPainter {
   layout: Layout;
   score = new Score();
+  /** 若有“原调→目标调”标注需求，记录原调（如 "bE"），由 app 在一键转调后写入；
+   *  a4TitleLines() 会据此把调性行渲染成 `1=原调 转 1=目标调`，否则维持单一 `1=目标调`。 */
+  sourceKeyForLabel: string | null = null;
   pageWidth = 0;
   pageHeight = 0;
   /** PageItem -> rendered <g>, populated each renderPage (for DOM picking). */
@@ -253,7 +256,11 @@ export class JinpuPainter {
     if (keyName) {
       let lastTitle = -1;
       for (let i = 0; i < result.length; i++) if (result[i].kind === "title") lastTitle = i;
-      result.splice(lastTitle + 1, 0, { text: `1=${keyName}`, size: o.creditSize, kind: "key" });
+      // 调性行：若 app 记录过“原调”（一键转调后），显示 `1=原调 转 1=目标调`（如 1=bE 转 1=C）；
+      // 否则维持单一 `1=目标调`（如 1=C）。原调即使与目标调相同也照常显示（幂等）。
+      const from = this.sourceKeyForLabel;
+      const keyLine = from ? `1=${from} 转 1=${keyName}` : `1=${keyName}`;
+      result.splice(lastTitle + 1, 0, { text: keyLine, size: o.creditSize, kind: "key" });
       // 等音标注：mi升=fa(4)、ti升=高音do(1')、低音ti升=do(1)，示例如 #3/4、#7/1'、#7,/1
       result.splice(lastTitle + 2, 0, { text: "#3/4   #7/1'   #7,/1", size: Math.round(o.creditSize * 0.7), kind: "key" });
     }
