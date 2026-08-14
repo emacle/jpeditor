@@ -120,6 +120,63 @@ export function convertKeyAndMeters(titleText: string, targetKeyName = "C"): str
   );
 }
 
+/** 把八度偏移量格式化为 JP-Word 八度记号（' 高、, 低）。oct=0 返回空串。 */
+function octaveMarks(oct: number): string {
+  if (oct > 0) return "'".repeat(oct);
+  if (oct < 0) return ",".repeat(-oct);
+  return "";
+}
+
+/**
+ * 整体升降八度（不动调号、不改数字本身）：扫描 .Voice 节，对每个非休止音符，
+ * 读取其一连串 `'`/`,` 八度记号计算当前八度偏移，再加 delta（+1 升、-1 降）后重写记号。
+ * 休止符 0 与其它记号（升降号前缀、括号、小节线、反复记号、连行符、减时线等）原样保留。
+ */
+export function shiftOctave(voiceText: string, delta: number): string {
+  if (delta === 0) return voiceText;
+  const out: string[] = [];
+  let i = 0;
+  const n = voiceText.length;
+  while (i < n) {
+    const ch = voiceText[i];
+    if (/[#b♯♭]/.test(ch) && i + 1 < n && /[1234567]/.test(voiceText[i + 1])) {
+      out.push(ch);
+      i += 1;
+      // fallthrough: 数字 + 八度记号统一在下方处理
+    }
+    if (/[0-7]/.test(voiceText[i])) {
+      const digit = voiceText[i];
+      i += 1;
+      if (digit === "0") { out.push("0"); continue; }
+      let oct = 0;
+      while (i < n && (voiceText[i] === "'" || voiceText[i] === ",")) {
+        oct += voiceText[i] === "'" ? 1 : -1;
+        i += 1;
+      }
+      out.push(digit);
+      out.push(octaveMarks(oct + delta));
+    } else {
+      out.push(ch);
+      i += 1;
+    }
+  }
+  return out.join("");
+}
+
+/**
+ * 完整升降八度一个 .jpwabc 文件内容：只转换所有 .Voice 节的八度记号，
+ * 其余节（.Title/.Words/.Repeat/.Layout 等）原样保留。delta>0 升、<0 降。
+ */
+export function transposeOctaveJpwabc(text: string, delta: number): { text: string } {
+  const sections = findSections(text);
+  const newSections: Array<[string, string]> = [];
+  for (const [name, content] of sections) {
+    if (name === "Voice") newSections.push([name, shiftOctave(content, delta)]);
+    else newSections.push([name, content]);
+  }
+  return { text: newSections.map(([, c]) => c).join("") };
+}
+
 /** 按 ".***" 开头的节标题切分。返回 [(节名, 内容), ...]，每个元素含该节标题行。语义与 app.py find_sections 一致。 */
 export function findSections(text: string): Array<[string, string]> {
   const lines = text.split(/(?<=\n)/); // keepends
