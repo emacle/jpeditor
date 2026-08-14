@@ -181,6 +181,7 @@ function makePart(sec: VoiceSection, key: Key, ts: Time): Part {
     if (noteCtx) {
       if (mea === null || newMeasure) {
         mea = new Measure(mid);
+        mea.key = key; // 让 measure.key 反映真实调号（MusicXML 导入器会写 m.key.fifths，这里补上，供标题调性行/KeySig 用）
         mid++;
         res.measures.push(mea);
         newMeasure = false;
