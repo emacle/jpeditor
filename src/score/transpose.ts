@@ -177,6 +177,86 @@ export function transposeOctaveJpwabc(text: string, delta: number): { text: stri
   return { text: newSections.map(([, c]) => c).join("") };
 }
 
+/** 判断 .Voice 文本是否以「升号等音记法」为主（出现 #3/#7 即视为升号样式）。 */
+export function hasSharpEnharmonic(voiceText: string): boolean {
+  return /[#♯][37]/.test(voiceText);
+}
+
+/**
+ * 常用等音（同音异名）替换，双向：
+ *   toSharp=false（升号→自然）：把 #3→4（同八度）、#7→1（高一个八度），如 #7→1'、#7,→1。
+ *   toSharp=true（自然→升号）：把 4→#3（同八度）、1→#7（低一个八度），如 4→#3、1'→#7、1(中央)→#7,。
+ * 带升降号前缀、休止符 0、其它记号（小节线/减时线/括号等）原样保留；#4/#5/#6/#1 等非常用等音不改。
+ */
+export function convertEnharmonic(voiceText: string, toSharp: boolean): string {
+  const out: string[] = [];
+  let i = 0;
+  const n = voiceText.length;
+  while (i < n) {
+    const ch = voiceText[i];
+    const isAcc = /[#b♯♭]/.test(ch) && i + 1 < n && /[0-7]/.test(voiceText[i + 1]);
+    if (isAcc) {
+      const acc = ch;
+      const digit = voiceText[i + 1];
+      i += 2;
+      let oct = 0;
+      while (i < n && (voiceText[i] === "'" || voiceText[i] === ",")) {
+        oct += voiceText[i] === "'" ? 1 : -1;
+        i += 1;
+      }
+      if (digit === "0") { out.push(acc + "0"); out.push(octaveMarks(oct)); continue; }
+      const isSharp = acc === "#" || acc === "♯";
+      if (!toSharp) {
+        // 升号→自然：只规范化 #3→4、#7→1(高八度)
+        if (isSharp && digit === "3") { out.push("4"); out.push(octaveMarks(oct)); }
+        else if (isSharp && digit === "7") { out.push("1"); out.push(octaveMarks(oct + 1)); }
+        else { out.push(acc + digit); out.push(octaveMarks(oct)); }
+      } else {
+        // 自然→升号方向下，已带升降号的保留原样
+        out.push(acc + digit); out.push(octaveMarks(oct));
+      }
+      continue;
+    }
+    if (/[0-7]/.test(ch)) {
+      const digit = ch;
+      i += 1;
+      if (digit === "0") { out.push("0"); continue; }
+      let oct = 0;
+      while (i < n && (voiceText[i] === "'" || voiceText[i] === ",")) {
+        oct += voiceText[i] === "'" ? 1 : -1;
+        i += 1;
+      }
+      if (toSharp) {
+        // 自然→升号：4→#3、1→#7(低一个八度)
+        if (digit === "4") { out.push("#3"); out.push(octaveMarks(oct)); }
+        else if (digit === "1") { out.push("#7"); out.push(octaveMarks(oct - 1)); }
+        else { out.push(digit); out.push(octaveMarks(oct)); }
+      } else {
+        out.push(digit); out.push(octaveMarks(oct));
+      }
+      continue;
+    }
+    out.push(ch);
+    i += 1;
+  }
+  return out.join("");
+}
+
+/**
+ * 对一个 .jpwabc 文件做常用等音记法切换：只改所有 .Voice 节，
+ * 其余节原样保留。返回切换后的文本与「当前是否为升号记法」。
+ */
+export function enharmonicJpwabc(text: string, toSharp: boolean): { text: string; nowSharp: boolean } {
+  const sections = findSections(text);
+  let nowSharp = toSharp;
+  const newSections: Array<[string, string]> = [];
+  for (const [name, content] of sections) {
+    if (name === "Voice") newSections.push([name, convertEnharmonic(content, toSharp)]);
+    else newSections.push([name, content]);
+  }
+  return { text: newSections.map(([, c]) => c).join(""), nowSharp };
+}
+
 /** 按 ".***" 开头的节标题切分。返回 [(节名, 内容), ...]，每个元素含该节标题行。语义与 app.py find_sections 一致。 */
 export function findSections(text: string): Array<[string, string]> {
   const lines = text.split(/(?<=\n)/); // keepends

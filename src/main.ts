@@ -182,6 +182,13 @@ async function boot() {
   const octUp = document.getElementById("btn-transpose-oct-up") as HTMLButtonElement | null;
   if (octDown) octDown.addEventListener("click", () => app.shiftOctave(-1));
   if (octUp) octUp.addEventListener("click", () => app.shiftOctave(1));
+  // 常用等音记法双向切换：首次方向按当前文本（含 #3/#7 视为升号样式 → 先转自然；否则先转升号）
+  const enharmonicBtn = document.getElementById("btn-enharmonic") as HTMLButtonElement | null;
+  if (enharmonicBtn) {
+    enharmonicBtn.addEventListener("click", () => {
+      app.setEnharmonic(!app.enharmonicSharp);
+    });
+  }
   if (transposeMapBtn) {
     transposeMapBtn.addEventListener("click", () => {
       if (mapBar && !mapBar.hidden && lastTranspose) { mapBar.hidden = true; return; }
