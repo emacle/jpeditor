@@ -15,7 +15,7 @@ import { MetaData } from "../smufl/smufl";
 import { loadMusicXml } from "../score/musicxml";
 import { abcToMusicXml } from "../abc/abc2xml";
 import { scoreToJpwabc, scoreToJpwabcWithMeta, type JpwMeta, type JpwRange } from "../score/jpscore";
-import { transposeJpwabc, transposeOctaveJpwabc, type TransposeInfo } from "../score/transpose";
+import { transposeJpwabc, transposeOctaveJpwabc, enharmonicJpwabc, hasSharpEnharmonic, type TransposeInfo } from "../score/transpose";
 import { decodeJpwabc, encodeJpwabc, isTauriRuntime } from "./fileio";
 import { MixedPainter } from "../mixed/painter";
 import { ScorePlayer, type PlayState } from "./player";
@@ -1238,6 +1238,24 @@ export class App {
    */
   shiftOctave(delta: number): boolean {
     const { text } = transposeOctaveJpwabc(this.getText(), delta);
+    if (text !== this.getText()) {
+      this.setText(text);
+      return true;
+    }
+    return false;
+  }
+
+  /** 当前文档是否以「升号等音记法」为主（用于决定等音切换的首次方向）。 */
+  get enharmonicSharp(): boolean {
+    return hasSharpEnharmonic(this.getText());
+  }
+
+  /**
+   * 常用等音记法双向切换（不动调号）：toSharp=true 把 4→#3、1(高音)→#7；
+   * false 把 #3→4、#7→1(高音)。成功即 setText 触发实时重排。
+   */
+  setEnharmonic(toSharp: boolean): boolean {
+    const { text } = enharmonicJpwabc(this.getText(), toSharp);
     if (text !== this.getText()) {
       this.setText(text);
       return true;

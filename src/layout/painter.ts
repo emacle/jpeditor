@@ -248,13 +248,14 @@ export class JinpuPainter {
       else if (seenTitle) out.push(it);
     }
     const result = out.length ? out : texts;
-    // 在最后一个标题行之后插入调性行（如 1=F），左对齐、置于标题正下方。
+    // 在最后一个标题行之后插入 调性行（1=X）+ 常用等音标注行，均左对齐、置于标题正下方。
     const keyName = this.score.parts[0]?.measures[0]?.key.name;
     if (keyName) {
       let lastTitle = -1;
       for (let i = 0; i < result.length; i++) if (result[i].kind === "title") lastTitle = i;
-      const keyItem = { text: `1=${keyName}`, size: o.creditSize, kind: "key" as const };
-      result.splice(lastTitle + 1, 0, keyItem);
+      result.splice(lastTitle + 1, 0, { text: `1=${keyName}`, size: o.creditSize, kind: "key" });
+      // 等音标注：mi升=fa(4)、ti升=高音do(1')、低音ti升=do(1)，示例如 #3/4、#7/1'、#7,/1
+      result.splice(lastTitle + 2, 0, { text: "#3/4   #7/1'   #7,/1", size: Math.round(o.creditSize * 0.7), kind: "key" });
     }
     return result;
   }
