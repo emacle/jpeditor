@@ -15,7 +15,7 @@ import { MetaData } from "../smufl/smufl";
 import { loadMusicXml } from "../score/musicxml";
 import { abcToMusicXml } from "../abc/abc2xml";
 import { scoreToJpwabc, scoreToJpwabcWithMeta, type JpwMeta, type JpwRange } from "../score/jpscore";
-import { transposeJpwabc, type TransposeInfo } from "../score/transpose";
+import { transposeJpwabc, transposeOctaveJpwabc, type TransposeInfo } from "../score/transpose";
 import { decodeJpwabc, encodeJpwabc, isTauriRuntime } from "./fileio";
 import { MixedPainter } from "../mixed/painter";
 import { ScorePlayer, type PlayState } from "./player";
@@ -1230,6 +1230,19 @@ export class App {
       this.setText(text);
     }
     return info;
+  }
+
+  /**
+   * 整体升降八度（不动调号）：把当前文档所有 .Voice 的音符整体升（delta>0）或降（delta<0）
+   * 一个八度，成功即 setText 触发实时重排。
+   */
+  shiftOctave(delta: number): boolean {
+    const { text } = transposeOctaveJpwabc(this.getText(), delta);
+    if (text !== this.getText()) {
+      this.setText(text);
+      return true;
+    }
+    return false;
   }
 }
 

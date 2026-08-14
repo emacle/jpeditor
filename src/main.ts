@@ -177,6 +177,11 @@ async function boot() {
     });
   }
   if (transposeBtnC) transposeBtnC.addEventListener("click", () => doTranspose("C"));
+  // 整体升降八度（不动调号）：直接改 .Voice 八度记号，不需要调号、不弹窗
+  const octDown = document.getElementById("btn-transpose-oct-down") as HTMLButtonElement | null;
+  const octUp = document.getElementById("btn-transpose-oct-up") as HTMLButtonElement | null;
+  if (octDown) octDown.addEventListener("click", () => app.shiftOctave(-1));
+  if (octUp) octUp.addEventListener("click", () => app.shiftOctave(1));
   if (transposeMapBtn) {
     transposeMapBtn.addEventListener("click", () => {
       if (mapBar && !mapBar.hidden && lastTranspose) { mapBar.hidden = true; return; }

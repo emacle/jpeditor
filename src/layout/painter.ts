@@ -225,15 +225,15 @@ export class JinpuPainter {
     return svgs;
   }
 
-  /** 整页顶部标题区行：标题（titleSize，居中）+ 作词/作曲/原唱等 credit（creditSize，靠右）。 */
-  private a4TitleLines(): { text: string; size: number; kind: "title" | "credit" }[] {
+  /** 整页顶部标题区行：标题（titleSize，居中）+ 调性行（如 1=D，左对齐，紧贴标题下）+ 作词/作曲/原唱等 credit（creditSize，靠右）。 */
+  private a4TitleLines(): { text: string; size: number; kind: "title" | "credit" | "key" }[] {
     const o = this.layout.options;
-    const texts: { text: string; size: number; kind: "title" | "credit" }[] = [];
+    const texts: { text: string; size: number; kind: "title" | "credit" | "key" }[] = [];
     let titleCount = 0;
     for (const it of this.score.credit) {
       const isTitle = it.type === "title";
       const size = isTitle ? o.titleSize : o.creditSize;
-      const item = { text: it.text, size, kind: (isTitle ? "title" : "credit") as "title" | "credit" };
+      const item = { text: it.text, size, kind: (isTitle ? "title" : "credit") as "title" | "credit" | "key" };
       if (isTitle) { titleCount++; texts.unshift(item); }
       else texts.push(item);
     }
@@ -247,24 +247,33 @@ export class JinpuPainter {
       if (it.kind === "title") { seenTitle = true; out.push(it); }
       else if (seenTitle) out.push(it);
     }
-    return out.length ? out : texts;
+    const result = out.length ? out : texts;
+    // 在最后一个标题行之后插入调性行（如 1=F），左对齐、置于标题正下方。
+    const keyName = this.score.parts[0]?.measures[0]?.key.name;
+    if (keyName) {
+      let lastTitle = -1;
+      for (let i = 0; i < result.length; i++) if (result[i].kind === "title") lastTitle = i;
+      const keyItem = { text: `1=${keyName}`, size: o.creditSize, kind: "key" as const };
+      result.splice(lastTitle + 1, 0, keyItem);
+    }
+    return result;
   }
 
   /** 标题区总高（与 appendTitleBlock 共用同一 y 推进公式，保证下移量一致）。 */
-  private a4TitleHeight(lines: { text: string; size: number; kind: "title" | "credit" }[]): number {
+  private a4TitleHeight(lines: { text: string; size: number; kind: "title" | "credit" | "key" }[]): number {
     return this.measureTitleBlock(lines).height;
   }
 
   /** 计算标题区各文本行（seg / y / anchor / size）并给出总高，供渲染与高度测量共用。
-   *  x 由 appendTitleBlock 按锚点定位（居中=折宽/2，靠右=宽-左边距），这里不关心。 */
-  private measureTitleBlock(lines: { text: string; size: number; kind: "title" | "credit" }[]) {
+   *  x 由 appendTitleBlock 按锚点定位（居中=折宽/2，靠右=宽-左边距，左=左边距），这里不关心。 */
+  private measureTitleBlock(lines: { text: string; size: number; kind: "title" | "credit" | "key" }[]) {
     let y = 14;
     const rows: { seg: string; y: number; anchor: string; size: number }[] = [];
     let lastBottom = y;
     for (const ln of lines) {
       for (const seg of ln.text.split("\n")) {
         if (seg.trim() === "") continue;
-        const anchor = ln.kind === "title" ? "middle" : "end";
+        const anchor = ln.kind === "title" ? "middle" : ln.kind === "key" ? "start" : "end";
         rows.push({ seg, y: y + ln.size * 0.8, anchor, size: ln.size });
         y += ln.size * (ln.kind === "title" ? 1.2 : 1.15);
         lastBottom = y;
@@ -277,14 +286,14 @@ export class JinpuPainter {
 
   private appendTitleBlock(
     svg: SVGSVGElement,
-    lines: { text: string; size: number; kind: "title" | "credit" }[],
+    lines: { text: string; size: number; kind: "title" | "credit" | "key" }[],
     width: number,
     o: LayoutOptions,
   ): void {
     const { rows } = this.measureTitleBlock(lines);
     for (const r of rows) {
       const t = document.createElementNS(SVG_NS, "text");
-      const x = r.anchor === "middle" ? width / 2 : width - o.marginLeft;
+      const x = r.anchor === "middle" ? width / 2 : r.anchor === "start" ? o.marginLeft : width - o.marginLeft;
       t.setAttribute("x", String(x));
       t.setAttribute("y", String(r.y));
       t.setAttribute("text-anchor", r.anchor);
