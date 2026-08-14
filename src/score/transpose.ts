@@ -177,18 +177,22 @@ export function transposeOctaveJpwabc(text: string, delta: number): { text: stri
   return { text: newSections.map(([, c]) => c).join("") };
 }
 
-/** 判断 .Voice 文本是否以「升号等音记法」为主（出现 #3/#7 即视为升号样式）。 */
-export function hasSharpEnharmonic(voiceText: string): boolean {
+/** 判断 .Voice 文本是否以指定类别的「升号等音记法」为主。which 限定 #3 或 #7，缺省任一。 */
+export function hasSharpEnharmonic(voiceText: string, which: "3" | "7" | "both" = "both"): boolean {
+  if (which === "3") return /[#♯]3/.test(voiceText);
+  if (which === "7") return /[#♯]7/.test(voiceText);
   return /[#♯][37]/.test(voiceText);
 }
 
 /**
- * 常用等音（同音异名）替换，双向：
- *   toSharp=false（升号→自然）：把 #3→4（同八度）、#7→1（高一个八度），如 #7→1'、#7,→1。
- *   toSharp=true（自然→升号）：把 4→#3（同八度）、1→#7（低一个八度），如 4→#3、1'→#7、1(中央)→#7,。
- * 带升降号前缀、休止符 0、其它记号（小节线/减时线/括号等）原样保留；#4/#5/#6/#1 等非常用等音不改。
+ * 常用等音（同音异名）替换，按类别分别处理，双向：
+ *   which="3"：只处理 #3↔4（同八度）
+ *   which="7"：只处理 #7↔1'（ti升 = 高八度 do）
+ *   toSharp=false（升号→自然）：#3→4、#7→1(高一个八度，如 #7→1'、#7,→1)。
+ *   toSharp=true（自然→升号）：4→#3、1→#7(低一个八度，如 4→#3、1'→#7、1(中央)→#7,)。
+ * 带升降号前缀、休止符 0、其它记号（小节线/减时线/括号等）原样保留。
  */
-export function convertEnharmonic(voiceText: string, toSharp: boolean): string {
+export function convertEnharmonic(voiceText: string, toSharp: boolean, which: "3" | "7" | "both" = "both"): string {
   const out: string[] = [];
   let i = 0;
   const n = voiceText.length;
@@ -207,9 +211,9 @@ export function convertEnharmonic(voiceText: string, toSharp: boolean): string {
       if (digit === "0") { out.push(acc + "0"); out.push(octaveMarks(oct)); continue; }
       const isSharp = acc === "#" || acc === "♯";
       if (!toSharp) {
-        // 升号→自然：只规范化 #3→4、#7→1(高八度)
-        if (isSharp && digit === "3") { out.push("4"); out.push(octaveMarks(oct)); }
-        else if (isSharp && digit === "7") { out.push("1"); out.push(octaveMarks(oct + 1)); }
+        // 升号→自然
+        if (isSharp && digit === "3" && (which === "3" || which === "both")) { out.push("4"); out.push(octaveMarks(oct)); }
+        else if (isSharp && digit === "7" && (which === "7" || which === "both")) { out.push("1"); out.push(octaveMarks(oct + 1)); }
         else { out.push(acc + digit); out.push(octaveMarks(oct)); }
       } else {
         // 自然→升号方向下，已带升降号的保留原样
@@ -227,9 +231,9 @@ export function convertEnharmonic(voiceText: string, toSharp: boolean): string {
         i += 1;
       }
       if (toSharp) {
-        // 自然→升号：4→#3、1→#7(低一个八度)
-        if (digit === "4") { out.push("#3"); out.push(octaveMarks(oct)); }
-        else if (digit === "1") { out.push("#7"); out.push(octaveMarks(oct - 1)); }
+        // 自然→升号
+        if (digit === "4" && (which === "3" || which === "both")) { out.push("#3"); out.push(octaveMarks(oct)); }
+        else if (digit === "1" && (which === "7" || which === "both")) { out.push("#7"); out.push(octaveMarks(oct - 1)); }
         else { out.push(digit); out.push(octaveMarks(oct)); }
       } else {
         out.push(digit); out.push(octaveMarks(oct));
@@ -243,15 +247,15 @@ export function convertEnharmonic(voiceText: string, toSharp: boolean): string {
 }
 
 /**
- * 对一个 .jpwabc 文件做常用等音记法切换：只改所有 .Voice 节，
+ * 对一个 .jpwabc 文件做指定类别的常用等音记法切换：只改所有 .Voice 节，
  * 其余节原样保留。返回切换后的文本与「当前是否为升号记法」。
  */
-export function enharmonicJpwabc(text: string, toSharp: boolean): { text: string; nowSharp: boolean } {
+export function enharmonicJpwabc(text: string, toSharp: boolean, which: "3" | "7" | "both" = "both"): { text: string; nowSharp: boolean } {
   const sections = findSections(text);
   let nowSharp = toSharp;
   const newSections: Array<[string, string]> = [];
   for (const [name, content] of sections) {
-    if (name === "Voice") newSections.push([name, convertEnharmonic(content, toSharp)]);
+    if (name === "Voice") newSections.push([name, convertEnharmonic(content, toSharp, which)]);
     else newSections.push([name, content]);
   }
   return { text: newSections.map(([, c]) => c).join(""), nowSharp };
