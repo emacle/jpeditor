@@ -182,13 +182,11 @@ async function boot() {
   const octUp = document.getElementById("btn-transpose-oct-up") as HTMLButtonElement | null;
   if (octDown) octDown.addEventListener("click", () => app.shiftOctave(-1));
   if (octUp) octUp.addEventListener("click", () => app.shiftOctave(1));
-  // 常用等音记法双向切换：首次方向按当前文本（含 #3/#7 视为升号样式 → 先转自然；否则先转升号）
-  const enharmonicBtn = document.getElementById("btn-enharmonic") as HTMLButtonElement | null;
-  if (enharmonicBtn) {
-    enharmonicBtn.addEventListener("click", () => {
-      app.setEnharmonic(!app.enharmonicSharp);
-    });
-  }
+  // 常用等音记法双向切换（分 #3↔4 与 #7↔1' 两类）：首次方向按当前文本（含该类别 #x 视为升号样式 → 先转自然；否则先转升号）
+  const enh3Btn = document.getElementById("btn-enh3") as HTMLButtonElement | null;
+  const enh7Btn = document.getElementById("btn-enh7") as HTMLButtonElement | null;
+  if (enh3Btn) enh3Btn.addEventListener("click", () => app.setEnharmonic(!app.enharmonicSharp("3"), "3"));
+  if (enh7Btn) enh7Btn.addEventListener("click", () => app.setEnharmonic(!app.enharmonicSharp("7"), "7"));
   if (transposeMapBtn) {
     transposeMapBtn.addEventListener("click", () => {
       if (mapBar && !mapBar.hidden && lastTranspose) { mapBar.hidden = true; return; }

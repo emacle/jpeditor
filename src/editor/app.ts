@@ -1245,17 +1245,18 @@ export class App {
     return false;
   }
 
-  /** 当前文档是否以「升号等音记法」为主（用于决定等音切换的首次方向）。 */
-  get enharmonicSharp(): boolean {
-    return hasSharpEnharmonic(this.getText());
+  /** 当前文档是否以指定类别的「升号等音记法」为主（决定等音切换的首次方向）。 */
+  enharmonicSharp(which: "3" | "7" | "both" = "both"): boolean {
+    return hasSharpEnharmonic(this.getText(), which);
   }
 
   /**
-   * 常用等音记法双向切换（不动调号）：toSharp=true 把 4→#3、1(高音)→#7；
-   * false 把 #3→4、#7→1(高音)。成功即 setText 触发实时重排。
+   * 指定类别的常用等音记法双向切换（不动调号）：
+   *   toSharp=true 把 4→#3、1(高音)→#7；false 把 #3→4、#7→1(高音)。
+   *   which="3"/"7"/"both" 限定处理哪类等音。成功即 setText 触发实时重排。
    */
-  setEnharmonic(toSharp: boolean): boolean {
-    const { text } = enharmonicJpwabc(this.getText(), toSharp);
+  setEnharmonic(toSharp: boolean, which: "3" | "7" | "both" = "both"): boolean {
+    const { text } = enharmonicJpwabc(this.getText(), toSharp, which);
     if (text !== this.getText()) {
       this.setText(text);
       return true;
