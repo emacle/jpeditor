@@ -1227,6 +1227,8 @@ export class App {
   transposeTo(targetKey: string): TransposeInfo {
     const { text, info } = transposeJpwabc(this.getText(), targetKey);
     if (info.ok && text !== this.getText()) {
+      // 记录原调 → 目标调，供 A4 标题调性行显示 `1=原调 转 1=目标调`（painter 实例不因 setText 重建，字段保留）
+      if (info.sourceKey) this.painter.sourceKeyForLabel = info.sourceKey;
       this.setText(text);
     }
     return info;
